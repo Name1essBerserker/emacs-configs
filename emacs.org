@@ -1,0 +1,487 @@
+#+title Emacs Config file
+#+PROPERTY: header-args:emacs-lisp :tangle ~/.emacs.d/init.el :mkdirp yes
+
+* Structure Templates
+
+#+begin_src emacs-lisp
+
+  (require 'org-tempo)
+  (add-to-list 'org-structure-template-alist '("el" . "src emacs-lisp"))
+
+#+end_src
+
+#+RESULTS:
+: ((el . src emacs-lisp) (a . export ascii) (c . center) (C . comment) (e . example) (E . export) (h . export html) (l . export latex) (q . quote) (s . src) (v . verse))
+
+* Package System settings
+
+#+begin_src emacs-lisp
+
+  (require 'package)
+
+  (add-to-list 'package-archives '("melpa" . "http://melpa.org/packages/"))
+
+  (package-initialize)
+
+  ;; Check if package-archive-contents is present, otherwise refresh
+  (unless package-archive-contents
+    (package-refresh-contents))
+
+  ;; Install use-package on nonLinux platforms if its not already installed
+  (unless (package-installed-p 'use-package)
+    (package-install 'use-package))
+
+  (require 'use-package)
+  (setq use-package-always-ensure t)
+
+#+end_src
+
+* Basic Appearance and Utilities
+
+** Basic Appearance: Startup, Fonts, Modes
+
+#+begin_src emacs-lisp
+
+  (setq inhibit-startup-message t) ; no startup message
+  (setq visible-bell t)            ; Set up the visible bell
+  (scroll-bar-mode -1)             ; Disable visible scrollbar
+  (tool-bar-mode -1)               ; Disable the toolbar
+  (tooltip-mode -1)                ; Disable tooltips
+  (menu-bar-mode -1)               ; Disable meny bar
+  (set-fringe-mode 14)             ; Give some breathing room
+  (global-hl-line-mode)            ; highlight current line
+
+  ;; Font settings
+  (set-face-attribute 'default nil :font "DroidSansM Nerd Font" :height 160)
+
+  ;; Line numbers
+  (column-number-mode)
+
+  (global-display-line-numbers-mode t)
+
+  (setq display-line-numbers-type 'relative)
+
+  ;; disable line numbers in some modes
+  (dolist (mode '(org-mode-hook
+                  term-mode-hook
+                  eshell-mode-hook
+                  shell-mode-hook))
+    (add-hook mode (lambda () (display-line-numbers-mode 0))))
+
+#+end_src
+
+** All the Icons
+
+#+begin_src emacs-lisp
+
+  (use-package all-the-icons
+    :if (display-graphic-p))
+
+#+end_src
+
+** Rainbow-delimeters
+
+#+begin_src emacs-lisp
+
+  (use-package rainbow-delimiters
+    :hook (prog-mode . rainbow-delimiters-mode))
+
+#+end_src
+
+** Doom Modeline
+
+#+begin_src emacs-lisp
+
+  (use-package doom-modeline
+    :ensure t
+    :init (doom-modeline-mode 1)
+    :custom ((doom-modeline-height 40)))
+
+#+end_src
+
+** Doom Themes
+
+#+begin_src emacs-lisp
+
+  (use-package doom-themes
+    :init (load-theme 'doom-tokyo-night t))
+
+#+end_src
+
+** Ivy, WhichKey, Counsel, Helpful
+
+#+begin_src emacs-lisp
+
+  ;; ivy completion
+  (use-package ivy
+    :diminish
+    :bind (("C-s" . swiper)
+           :map ivy-minibuffer-map
+           ("TAB" . ivy-alt-done)
+           ("C-l" . ivy-alt-done)
+           ("C-j" . ivy-next-line)
+           ("C-k" . ivy-previous-line)
+           :map ivy-switch-buffer-map
+           ("C-k" . ivy-previous-line)
+           ("C-l" . ivy-done)
+           ("C-d" . ivy-switch-buffer-kill)
+           :map ivy-reverse-i-search-map
+           ("C-k" . ivy-precious-line)
+           ("C-d" . ivy-reverse-i-search-kill))
+    :config
+    (ivy-mode 1))
+
+  ;; WhichKey
+  (use-package which-key
+    :init (which-key-mode)
+    :diminish which-key-mode
+    :config
+    (setq which-key-idle-delay 0.3))
+
+  ;; Ivy rich
+  (use-package ivy-rich
+    :init
+    (ivy-rich-mode 1))
+
+  ;; Counsel
+  (use-package counsel
+    :bind (("M-x" . counsel-M-x)
+           ("C-x b" . counsel-ibuffer)
+           ("C-x C-f" . counsel-find-file)
+           :map minibuffer-local-map
+           ("C-r" . 'counsel-minibuffer-history)))
+  ;; Helpful
+  (use-package helpful
+                                          ;:ensure t
+    :custom
+    (counsel-describe-function-function #'helpful-callable)
+    (counsel-desctibe-variable-function #'helpful-variable)
+    :bind
+    ([remap describe-function] . counsel-describe-function)
+    ([remap describe-command] . helpful-command)
+    ([remap describe-variable] . counsel-describe-variable)
+    ([remap describe-key] . helpful-key))
+
+#+end_src
+
+* Key Bindings
+
+** Basic
+
+#+begin_src emacs-lisp
+
+  ;; make ESC quit prompts
+  (global-set-key (kbd "<escape>") 'keyboard-escape-quit)
+
+#+end_src
+** General and Evil mode
+
+#+begin_src emacs-lisp
+
+  (use-package general
+    :config
+    (general-create-definer definer/leader-keys
+      :keymaps '(normal insert visual emacs)
+      :prefix "SPC"
+      :global-prefix "C-SPC")
+
+    (definer/leader-keys
+      "t"  '(:ignore t :which-key "toggles")
+      "tt" '(counsel-load-theme :which-key "choose theme")))
+
+  ;; Evil mode
+  (defun definer/evil-hook ()
+    (dolist (mode '(custom-mode
+                    eshell-mode
+                    git-rebase-mode
+                    erc-mode
+                    circle-server-mode
+                    circle-chat-mode
+                    circle-query-mode
+                    sauron-mode
+                    term-mode))
+      (add-to-list 'evil-emacs-state-modes mode)))
+
+  (use-package evil :demand t
+    :init
+    (setq evil-want-integration t)
+    (setq evil-want-keybinding nil)
+    (setq evil-want-C-u-scroll t)
+    (setq evil-want-C-i-jump nil)
+    :hook (evil-mode . definer/evil-hook)
+    :config
+    (evil-mode 1)
+    (define-key evil-insert-state-map (kbd "C-g") 'evil-normal-state)
+    (define-key evil-insert-state-map (kbd "C-h") 'evil-delete-backward-char-and-join)
+
+    ;; use visual line motion even outside of visual line mode buffers
+    (evil-global-set-key 'motion "j" 'evil-next-visual-line)
+    (evil-global-set-key 'motion "k" 'evil-previous-visual-line)
+
+    (evil-set-initial-state 'messages-buffer-mode 'normal)
+    (evil-set-initial-state 'dashboard-mode 'normal))
+
+  (use-package evil-collection
+    :after evil
+    :config
+    (evil-collection-init))
+
+#+end_src
+
+** Text Scaling
+
+#+begin_src emacs-lisp
+  
+  (use-package hydra)
+
+  (defhydra hydra-text-scale (:timeout 4)
+    "scale text"
+    ("j" text-scale-increase "in")
+    ("k" text-scale-decrease "out")
+    ("f" nil "finished" :exit t))
+
+  (definer/leader-keys
+    "ts" '(hydra-text-scale/body :which-key "scale-text"))
+
+#+end_src
+
+* Org Mode
+
+** Basic Configs
+
+#+begin_src emacs-lisp
+
+  (defun definer/org-mode-setup ()
+    (org-indent-mode)
+    (auto-fill-mode 1))
+
+  ;  (variable-pitch-mode 1)
+  ;  (auto-fill-mode 0)
+                                          ;  (visual-line-mode 1))
+  ;  (setq evil-auto-indent nil))
+
+  (use-package org
+    :hook (org-mode . definer/org-mode-setup)
+    :config
+    (setq org-ellipsis " ")
+
+    (setq org-agenda-start-with-log-mode t)
+    (setq org-log-done 'time)
+    (setq org-log-int-drawer t)
+
+    (setq org-refile-targets
+          '(("archive.org" :maxlevel . 3)
+            ("tasks.org" :maxlevel . 1)))
+
+    (advice-add 'org-refile :after 'org-save-all-org-buffers)
+
+    (setq org-agenda-files
+          '("~/org_files/birthdays.org"
+            "~/org_files/habits.org"
+            "~/org_files/tasks.org"))
+
+    (setq org-tag-alist
+          '((:startgroup)
+             ; put mutually exclusive tags here
+            (:endgroup)
+            ("@family" . ?F)
+            ("@work" . ?W)
+            ("@hobby" . ?H)
+            ("@study" . ?S)))
+
+    (require 'org-habit)
+    (add-to-list 'org-modules 'org-habit)
+    (setq org-habit-graph-column 60)
+
+    (setq org-todo-keywords
+          '((sequence "TODO(t)" "NEXT(n)" "|" "DONE(d)" "CANCELLED(c)"))))
+  ;	  (sequence "BACKLOG(b)" "PLAN(p)" "READY(r)" "ACTIVE(a)" "REVIEW(v)" "WAIT(w@/!)" "HOLD(h)" "|" "COMPLETED(c)" "CANC(k@)"))))
+  ; the need for custom org agenda commands shall appear as I work more in org mode
+  ; org-templates will have to take a look
+  ; jornaling in org-mode sounds like a good idea
+
+  (use-package org-bullets
+    :after org
+    :hook (org-mode . org-bullets-mode))
+
+  ;(dolist (faces '((org-level-1 . 1.2)
+  ;		 (org-level-2 . 1.1)
+  ;		 (org-level-3 . 1.0)
+  ;		 (org-level-4 . 1.0)
+  ;		 (org-level-5 . 1.1)
+  ;		 (org-level-6 . 1.1)
+  ;		 (org-level-7 . 1.1)
+  ;		 (org-level-8 . 1.1)))
+  ;  (set-face-attribute (car face) nil :font "Cantarell" :weight 'regular :height (cdr face)))
+
+  (defun definer/org-mode-visual-fill ()
+    (setq visual-fill-column-width 100
+          visual-fill-column-center-text t)
+    (visual-fill-column-mode 1))
+
+  (use-package visual-fill-column
+    :defer t
+    :hook (org-mode . definer/org-mode-visual-fill))
+  
+#+end_src
+
+** Configure Babel Languages
+
+#+begin_src emacs-lisp
+  
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp .t)
+     (python . t)))
+
+#+end_src
+
+** Auto tangle Configuration files
+
+#+begin_src emacs-lisp
+
+  ;; Automatically tangle emacs.org config file when we save it
+  (defun definer/org-babel-tangle-config ()
+    (when (string-equal (buffer-file-name)
+                        (expand-file-name "~/emacs.org"))
+      (let ((org-confirm-babel-evaluate nil))
+        (org-babel-tangle))))
+
+  (add-hook 'org-mode-hook (lambda () (add-hook 'after-save-hook #'definer/org-babel-tangle-config)))
+  
+#+end_src
+
+#+RESULTS:
+| (lambda nil (add-hook 'after-save-hook #'definer/org-babel-tangle-config)) | org-tempo-setup | org-bullets-mode | #[0 \300\301\302\303\304$\207 [add-hook change-major-mode-hook org-show-all append local] 5] | #[0 \300\301\302\303\304$\207 [add-hook change-major-mode-hook org-babel-show-result-all append local] 5] | org-babel-result-hide-spec | org-babel-hide-all-hashes | definer/org-mode-visual-fill | definer/org-mode-setup | (lambda nil (display-line-numbers-mode 0)) |
+
+* Development tools
+
+** Languages
+
+*** Language Servers
+
+#+begin_src emacs-lisp
+
+  (use-package lsp-mode
+    :hook ((c-mode
+            c++-mode
+            cuda-mode
+            python-mode
+            ) . lsp-deferred)
+    :commands (lsp lsp-deferred)
+    :init
+    (setq lsp-keymap-prefix "C-c l")
+    :config
+    (lsp-enable-which-key-integration t))
+
+#+end_src
+
+*** Python
+
+#+begin_src emacs-lisp
+
+  (use-package lsp-pyright
+    :hook (python-mode . (lambda () (require 'lsp-pyright))))
+
+#+end_src
+
+*** C/C++
+
+#+begin_src emacs-lisp
+
+  ;(setq ccls-executable "/snap/bin/ccls")
+
+  ;(use-package ccls
+  ;  :hook ((c-mode c++-mode cuda-mode)
+  ;         (lambda () (require 'ccls) (lsp))))
+
+#+end_src
+
+** Conda
+
+#+begin_src emacs-lisp
+
+  (use-package conda
+    :config
+    (custom-set-variables
+     '(conda-anaconda-home "/home/jan/anaconda3"))
+    (setq conda-env-home-directory (expand-file-name "~/anaconda3/"))
+    :hook (python-mode . (lambda () (require 'conda))))
+
+#+end_src
+
+** Magit Configs
+
+#+begin_src emacs-lisp
+
+  ;(use-package magit
+  ;  :custom
+  ;  (magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
+  ;(use-package evil-magit
+  ;  :after magit)
+
+  ;(use-package forge)
+  
+#+end_src
+
+* Misc
+
+#+begin_src emacs-lisp
+
+
+#+end_src
+
+* TODO Still with this config
+
+** configure magit
+
+** DONE why hl-line-mode does not work
+CLOSED: [2023-12-22 Fri 23:59]
+COMMENT: Also figured out how to fix number lines 
+
+** Figure out how to move btw windows fast (and what keybindings can be set)
+
+** set swiper with evil keybinding
+
+*** learn and setup swiping through windows
+
+*** learn to use org-mode in evil mode
+
+
+** configure elfeed and elfeed-tube
+
+** configure other languages that I use
+
+*** Common Lisp
+
+*** Haskell
+
+*** Matlab
+
+*** prolog
+
+** DONE configure conda. 
+CLOSED: [2023-12-23 Sat 00:30]
+Seems to work
+
+** make it universal for Windows as well as Linux
+
+** What universal C-u is for?
+
+** Research projectile
+
+** org-mode further settings and learnings
+
+*** figure out how to refile trees as separate headings
+
+*** customize TODOs and figure out weird functionality
+
+*** figure out what capture is and how to use it
+
+*** figure out how to better visualize refile options
+
+*** Research org-roam and ekg packages
+
+*** figure out how to journal in org mode
+
